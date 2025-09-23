@@ -109,7 +109,7 @@ func getStatusInfo(status string) (icon string, style lipgloss.Style) {
 	}
 }
 
-func main() {
+func old_main() {
 	// Construct args for 'go test'. Always include -json.
 	cmdArgs := []string{"test", "-json"}
 	userArgs := os.Args[1:]
