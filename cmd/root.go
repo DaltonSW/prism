@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
+	"go.dalton.dog/prism/internal"
 )
 
 var rootCmd = &cobra.Command{
@@ -13,6 +14,7 @@ var rootCmd = &cobra.Command{
 	Short: "Prism is a wrapper around go test to make it simple and beautiful",
 	Run: func(cmd *cobra.Command, args []string) {
 		// Do some stuff
+		internal.Execute(args)
 	},
 }
 
