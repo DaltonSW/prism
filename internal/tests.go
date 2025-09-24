@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss/v2/table"
 )
 
 func Execute(args []string) {
@@ -367,13 +368,17 @@ func displayTestTableRow(
 
 // displayOverallSummary prints the final summary of all tests across all packages.
 func displayOverallSummary(summary *TestSummary) {
+	table := table.New().
+		Rows([]string{"Total", fmt.Sprintf("%d", summary.Total)},
+			[]string{"Passed", fmt.Sprintf("%d", summary.Passed)},
+			[]string{"Failed", fmt.Sprintf("%d", summary.Failed)},
+			[]string{"Skipped", fmt.Sprintf("%d", summary.Skipped)},
+		)
+
 	var summaryText strings.Builder
 
-	summaryText.WriteString("Overall Test Summary\n\n")
-	summaryText.WriteString(fmt.Sprintf("Total:   %d\n", summary.Total))
-	summaryText.WriteString(fmt.Sprintf("%s %d\n", passStyle.Render("Passed:"), summary.Passed))
-	summaryText.WriteString(fmt.Sprintf("%s %d\n", failStyle.Render("Failed:"), summary.Failed))
-	summaryText.WriteString(fmt.Sprintf("%s %d", skipStyle.Render("Skipped:"), summary.Skipped))
+	summaryText.WriteString("Summary\n")
+	summaryText.WriteString(table.Render())
 
 	fmt.Println(summaryBoxStyle.Render(summaryText.String()))
 }

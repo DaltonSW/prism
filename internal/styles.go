@@ -17,10 +17,9 @@ var (
 	headerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8AFF")).Bold(true).Underline(true) // Soft Magenta
 
 	summaryBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Align(lipgloss.Center).
 			Padding(1, 2).
-			MarginTop(1).
-			BorderForeground(lipgloss.Color("#6A6A6A")) // Darker Gray for border
+			MarginTop(1)
 
 	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF4500")).Bold(true) // Orange-Red
 
