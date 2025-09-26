@@ -11,10 +11,8 @@ var (
 	packageStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#8AFFFB")).Bold(true) // Light Aqua
 	testNameStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#E0E0E0"))            // Off-white
 	durationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#A0A0A0"))            // Medium Gray
-	// Adjusted MarginLeft to align failure output with the start of the 'TEST NAME' column.
-	outputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#C0C0C0")).Italic(true).MarginLeft(9)
 
-	headerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF8AFF")).Bold(true).Underline(true) // Soft Magenta
+	outputStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#C0C0C0")).Italic(true).MarginLeft(3)
 
 	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF4500")).Bold(true) // Orange-Red
 
@@ -26,8 +24,7 @@ var (
 	// AppOverallOutputStyle is the top-level style that wraps all the display output.
 	AppOverallOutputStyle = lipgloss.NewStyle().
 		AlignHorizontal(lipgloss.Center).
-		Padding(1, 2).
-		Margin(1, 2)
+		Margin(1, 1, 0)
 )
 
 // --- Specific Table/Summary Styles ---
@@ -40,36 +37,10 @@ var (
 					Margin(1, 0). // Margin between package blocks and summary
 					Align(lipgloss.Center)
 
-	// Style for the overall summary table headers/keys (e.g., "Total", "Passed")
-	overallSummaryTableHeaderStyle = lipgloss.NewStyle().
-					Bold(true).
-					Foreground(lipgloss.Color("#FF8AFF"))
-
-	// Style for the overall summary table values (e.g., "10", "8")
-	overallSummaryTableValueStyle = lipgloss.NewStyle().
-					Foreground(lipgloss.Color("#A0A0A0"))
-
 	// Style for the package test table
 	pkgTableStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			Align(lipgloss.Center)
-
-	// Style for the header row of the package test table
-	pkgTableHeaderStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#888888")).
-				Bold(true).
-				Underline(true).
-				Padding(0, 1)
-
-	// Default cell style for the package test table (used as base)
-	pkgTableCellStyle = lipgloss.NewStyle().
-				Padding(0, 1)
-
-	// Column-specific styles for the package test table
-	// These widths (1, 4, 8) are the *content* widths, `pkgTableCellStyle.Padding` adds to total.
-	pkgTableIconColStyle     = lipgloss.NewStyle().Width(1).Align(lipgloss.Center)
-	pkgTableStatusColStyle   = lipgloss.NewStyle().Width(4).Align(lipgloss.Left)
-	pkgTableDurationColStyle = lipgloss.NewStyle().Width(8).Align(lipgloss.Right)
 )
 
 var PrismHeader = `         /\
