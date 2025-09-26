@@ -21,6 +21,12 @@ const (
 	StatusRunning Status = "running" // Internal status for tests currently executing
 )
 
+var GlobalConfig Config
+
+type Config struct {
+	Verbose bool
+}
+
 type Status string
 
 func (s Status) String() string {
@@ -208,7 +214,7 @@ func generateTestRows(tests []TestResult) [][]string {
 		}
 		rows = append(rows, row)
 
-		if result.Status == StatusFail && len(result.Output) > 0 {
+		if result.Status == StatusFail && len(result.Output) > 0 && GlobalConfig.Verbose {
 			for _, line := range result.Output {
 				if strings.TrimSpace(line) != "" && !(strings.HasPrefix(line, "===") || strings.HasPrefix(line, "---")) {
 					outputRow := []string{"", "", outputStyle.Render(line)}
