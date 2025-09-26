@@ -34,13 +34,7 @@ func Execute(args []string) {
 	}
 
 	// Capture all display output as a single string and wrap it
-	fullOutput := displayResults(summary)
-	fmt.Println(AppOverallOutputStyle.Render(fullOutput))
-
-	if summary.Failed > 0 {
-		os.Exit(1)
-	}
-	os.Exit(0)
+	displayResults(summary)
 }
 
 func runTests(args []string) (*TestSummary, error) {
@@ -156,7 +150,7 @@ func processEvent(event *TestEvent, testMap map[string]*TestResult, summary *Tes
 		summary.Total++
 	}
 
-	switch event.Action {
+	switch action := Status(event.Action); action {
 	case StatusOutput:
 		output := strings.TrimSpace(event.Output)
 		if output != "" {
@@ -164,10 +158,10 @@ func processEvent(event *TestEvent, testMap map[string]*TestResult, summary *Tes
 		}
 
 	case StatusPass, StatusFail, StatusSkip:
-		result.Status = event.Action
+		result.Status = action
 		result.Duration = time.Duration(event.Elapsed * float64(time.Second))
 
-		switch event.Action {
+		switch action {
 		case StatusPass:
 			summary.Passed++
 		case StatusFail:

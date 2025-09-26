@@ -12,6 +12,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "prism",
 	Short: "Prism is a wrapper around go test to make it simple and beautiful",
+	Args:  cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		internal.Execute(args)
 	},

@@ -13,13 +13,32 @@ import (
 
 // --- Constants for Test Statuses ---
 const (
-	StatusRun     = "run"
-	StatusPass    = "pass"
-	StatusFail    = "fail"
-	StatusSkip    = "skip"
-	StatusOutput  = "output"
-	StatusRunning = "running" // Internal status for tests currently executing
+	StatusRun     Status = "run"
+	StatusPass    Status = "pass"
+	StatusFail    Status = "fail"
+	StatusSkip    Status = "skip"
+	StatusOutput  Status = "output"
+	StatusRunning Status = "running" // Internal status for tests currently executing
 )
+
+type Status string
+
+func (s Status) String() string {
+	var icon string
+	var style lipgloss.Style
+	switch s {
+	case StatusPass:
+		icon, style = "✓", passStyle
+	case StatusFail:
+		icon, style = "✗", failStyle
+	case StatusSkip:
+		icon, style = "⊝", skipStyle
+	default:
+		icon, style = "◌", lipgloss.NewStyle().Foreground(lipgloss.Color("#B0B0B0"))
+	}
+
+	return style.Render(fmt.Sprintf("%v %v", icon, strings.ToUpper(string(s))))
+}
 
 // --- TestEvent (External representation from `go test -json`) ---
 type TestEvent struct {
@@ -35,7 +54,7 @@ type TestEvent struct {
 type TestResult struct {
 	Name     string // Full test name, e.g., TestMyFunction
 	Package  string
-	Status   string // StatusPass, StatusFail, StatusSkip, StatusRunning
+	Status   Status // StatusPass, StatusFail, StatusSkip, StatusRunning
 	Duration time.Duration
 	Output   []string // Raw output from the test
 }
@@ -44,7 +63,7 @@ type TestResult struct {
 type PackageResults struct {
 	Name     string
 	Tests    []TestResult
-	Status   string // Derived: StatusPass, StatusFail, StatusSkip
+	Status   Status // Derived: StatusPass, StatusFail, StatusSkip
 	Total    int
 	Passed   int
 	Failed   int
@@ -67,7 +86,7 @@ func (summary *TestSummary) String() string {
 }
 
 // displayResults collects all rendered strings and returns them as a single output string.
-func displayResults(overallSummary *TestSummary) string {
+func displayResults(overallSummary *TestSummary) {
 	var renderBlocks []string
 
 	groupedByPackage := make(map[string]*PackageResults)
@@ -111,42 +130,38 @@ func displayResults(overallSummary *TestSummary) string {
 	}
 
 	// Overall summary
-	renderBlocks = append(renderBlocks, displayOverallSummary(overallSummary))
+	if len(groupedByPackage) > 1 {
+		renderBlocks = append(renderBlocks, displayOverallSummary(overallSummary))
+	}
 
 	// Join all blocks with two newlines for separation (a blank line between them)
-	return AppOverallOutputStyle.Render(lipgloss.JoinVertical(lipgloss.Left, renderBlocks...))
+	fmt.Println(AppOverallOutputStyle.Render(lipgloss.JoinVertical(lipgloss.Left, renderBlocks...)))
 }
 
 // displayPackageBlock builds and returns the display string for a single package.
 // It returns a string without a trailing newline.
 func displayPackageBlock(pkgResults *PackageResults) string {
-	icon, statusStyle := getStatusInfo(pkgResults.Status)
-	statusText := strings.ToUpper(pkgResults.Status)
-
 	pkgHeader := lipgloss.JoinHorizontal(
 		lipgloss.Left,
-		statusStyle.Render(icon),
-		" ",
-		statusStyle.Render(statusText),
+		pkgResults.Status.String(),
 		" ",
 		packageStyle.Render(pkgResults.Name),
 		" ",
 		durationStyle.Render(fmt.Sprintf("(%v)", pkgResults.Duration)),
-		lipgloss.NewStyle().Faint(true).Render(
-			fmt.Sprintf(
-				" (%d total, %s %d passed, %s %d failed, %s %d skipped)",
-				pkgResults.Total,
-				passStyle.Render(""), pkgResults.Passed,
-				failStyle.Render(""), pkgResults.Failed,
-				skipStyle.Render(""), pkgResults.Skipped,
-			),
+	)
+
+	pkgHeader = lipgloss.JoinVertical(lipgloss.Left, pkgHeader,
+		fmt.Sprintf(
+			"%d total • %s • %s • %s",
+			pkgResults.Total,
+			passStyle.Render(fmt.Sprintf("%d passed", pkgResults.Passed)),
+			failStyle.Render(fmt.Sprintf("%d failed", pkgResults.Failed)),
+			skipStyle.Render(fmt.Sprintf("%d skipped", pkgResults.Skipped)),
 		),
 	)
 
-	separatorLine := packageSeparatorStyle.Render(strings.Repeat("─", lipgloss.Width(pkgHeader)))
-
 	sort.Slice(pkgResults.Tests, func(i, j int) bool {
-		statusOrder := map[string]int{
+		statusOrder := map[Status]int{
 			StatusFail:    3,
 			StatusSkip:    2,
 			StatusPass:    1,
@@ -165,15 +180,17 @@ func displayPackageBlock(pkgResults *PackageResults) string {
 
 	t := table.New().
 		Border(lipgloss.HiddenBorder()).
-		Width(lipgloss.Width(pkgHeader)).
-		Headers(" ", "RES", "TEST NAME", "DURATION").
+		Headers("RESULT", "DUR", "TEST").
 		Rows(generateTestRows(pkgResults.Tests)...)
+
+	tableStr := t.Render()
+
+	separatorLine := packageSeparatorStyle.Render(strings.Repeat("─", max(lipgloss.Width(tableStr), lipgloss.Width(pkgHeader))))
 
 	return lipgloss.JoinVertical(lipgloss.Left,
 		pkgHeader,
 		separatorLine,
-		pkgTableStyle.Render(t.Render()),
-		"\n\n",
+		pkgTableStyle.Render(tableStr),
 	)
 }
 
@@ -182,21 +199,19 @@ func displayPackageBlock(pkgResults *PackageResults) string {
 func generateTestRows(tests []TestResult) [][]string {
 	rows := make([][]string, 0) // Initialize with 0 capacity as output lines are dynamic
 	for _, result := range tests {
-		icon, statusFgStyle := getStatusInfo(result.Status)
 		displayTestName := strings.TrimPrefix(result.Name, "Test")
 
 		row := []string{
-			statusFgStyle.Render(icon),
-			statusFgStyle.Render(strings.ToUpper(result.Status)),
+			result.Status.String(),
+			durationStyle.Render(fmt.Sprintf("%v", result.Duration)),
 			testNameStyle.Render(displayTestName),
-			durationStyle.Render(fmt.Sprintf("(%v)", result.Duration)),
 		}
 		rows = append(rows, row)
 
 		if result.Status == StatusFail && len(result.Output) > 0 {
 			for _, line := range result.Output {
-				if strings.TrimSpace(line) != "" {
-					outputRow := []string{"", "", outputStyle.Render(line), ""}
+				if strings.TrimSpace(line) != "" && !(strings.HasPrefix(line, "===") || strings.HasPrefix(line, "---")) {
+					outputRow := []string{"", "", outputStyle.Render(line)}
 					rows = append(rows, outputRow)
 				}
 			}
@@ -208,20 +223,13 @@ func generateTestRows(tests []TestResult) [][]string {
 // displayOverallSummary builds and returns the display string for the overall summary.
 func displayOverallSummary(summary *TestSummary) string {
 	out := "Overall Test Results\n"
-	out += fmt.Sprintf("Total: %d | Passed: %d | Skipped: %d | Failed: %d", summary.Total, summary.Passed, summary.Skipped, summary.Failed)
+	out += fmt.Sprintf(
+		"%d total • %s • %s • %s",
+		summary.Total,
+		passStyle.Render(fmt.Sprintf("%d passed", summary.Passed)),
+		failStyle.Render(fmt.Sprintf("%d failed", summary.Failed)),
+		skipStyle.Render(fmt.Sprintf("%d skipped", summary.Skipped)),
+	)
 
-	return out
-}
-
-func getStatusInfo(status string) (icon string, style lipgloss.Style) {
-	switch status {
-	case StatusPass:
-		return "✓", passStyle
-	case StatusFail:
-		return "✗", failStyle
-	case StatusSkip:
-		return "⊝", skipStyle
-	default:
-		return "◌", lipgloss.NewStyle().Foreground(lipgloss.Color("#B0B0B0"))
-	}
+	return pkgTableStyle.Padding(1).Render(out)
 }
