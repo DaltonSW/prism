@@ -24,7 +24,8 @@ const (
 var GlobalConfig Config
 
 type Config struct {
-	Verbose bool
+	Verbose   bool
+	OnlyFails bool
 }
 
 type Status string
@@ -205,6 +206,10 @@ func displayPackageBlock(pkgResults *PackageResults) string {
 func generateTestRows(tests []TestResult) [][]string {
 	rows := make([][]string, 0) // Initialize with 0 capacity as output lines are dynamic
 	for _, result := range tests {
+		if GlobalConfig.OnlyFails && !(result.Status == StatusFail) {
+			continue
+		}
+
 		displayTestName := strings.TrimPrefix(result.Name, "Test")
 
 		row := []string{
@@ -214,7 +219,7 @@ func generateTestRows(tests []TestResult) [][]string {
 		}
 		rows = append(rows, row)
 
-		if result.Status == StatusFail && len(result.Output) > 0 && GlobalConfig.Verbose {
+		if len(result.Output) > 0 && GlobalConfig.Verbose {
 			for _, line := range result.Output {
 				if strings.TrimSpace(line) != "" && !(strings.HasPrefix(line, "===") || strings.HasPrefix(line, "---")) {
 					outputRow := []string{"", "", outputStyle.Render(line)}

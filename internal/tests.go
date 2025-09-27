@@ -15,12 +15,11 @@ import (
 
 func Execute(args []string) {
 	cmdArgs := []string{"test", "-json"}
-	userArgs := os.Args[1:]
 
-	if len(userArgs) == 0 {
+	if len(args) == 0 {
 		cmdArgs = append(cmdArgs, "./...")
 	} else {
-		cmdArgs = append(cmdArgs, userArgs...)
+		cmdArgs = append(cmdArgs, args...)
 	}
 
 	summary, err := runTests(cmdArgs)

@@ -25,5 +25,7 @@ func Execute() {
 }
 
 func init() {
+	internal.GlobalConfig = internal.Config{}
 	rootCmd.PersistentFlags().BoolVarP(&internal.GlobalConfig.Verbose, "verbose", "v", false, "Include test sub-output")
+	rootCmd.PersistentFlags().BoolVarP(&internal.GlobalConfig.OnlyFails, "only-fails", "f", false, "Only run failing tests")
 }
