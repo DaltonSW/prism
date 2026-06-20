@@ -26,6 +26,7 @@ type Config struct {
 	NoBar     bool `json:"no_bar"`
 	NoColor   bool `json:"no_color"`
 	ShowColor bool `json:"show_color"`
+	Watch     bool `json:"watch"`
 }
 
 // GlobalConfig holds the active configuration for the current process.
