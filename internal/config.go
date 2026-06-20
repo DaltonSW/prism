@@ -21,11 +21,15 @@ const (
 var configPathOverride = os.Getenv("PRISM_CONFIG_FILE")
 
 type Config struct {
-	Verbose   bool `json:"verbose"`
-	OnlyFails bool `json:"only_fails"`
-	NoBar     bool `json:"no_bar"`
-	NoColor   bool `json:"no_color"`
-	ShowColor bool `json:"show_color"`
+	Verbose     bool   `json:"verbose"`
+	OnlyFails   bool   `json:"only_fails"`
+	NoBar       bool   `json:"no_bar"`
+	NoColor     bool   `json:"no_color"`
+	ShowColor   bool   `json:"show_color"`
+	SummaryOnly bool   `json:"summary_only"`
+	Cover       bool   `json:"cover"`
+	Filter      string `json:"filter"`
+	Count       string `json:"count"`
 }
 
 // GlobalConfig holds the active configuration for the current process.
