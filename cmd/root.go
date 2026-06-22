@@ -19,7 +19,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "prism",
 	Short: "Prism is a wrapper around go test to make it simple and beautiful",
-	Long: internal.Header() + "\n\n" + `Prism is a wrapper around Go's built in test command that aims to make it beautiful and organized. 
+	Long: internal.Header() + "\n\n" + `Prism is a wrapper around Go's built in test command that aims to make it beautiful and organized.
 
 Issues? Requests? Feedback? Let me know! -- github.com/DaltonSW/prism`,
 	Args: cobra.ArbitraryArgs,
@@ -29,6 +29,10 @@ Issues? Requests? Feedback? Let me know! -- github.com/DaltonSW/prism`,
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		if internal.GlobalConfig.Watch {
+			internal.Watch(args)
+			return
+		}
 		internal.Execute(args)
 	},
 }
@@ -51,6 +55,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&internal.GlobalConfig.Verbose, "verbose", "v", internal.GlobalConfig.Verbose, "Include test sub-output")
 	rootCmd.PersistentFlags().BoolVarP(&internal.GlobalConfig.OnlyFails, "only-fails", "f", internal.GlobalConfig.OnlyFails, "Only run failing tests")
 	rootCmd.PersistentFlags().BoolVar(&internal.GlobalConfig.NoBar, "no-bar", internal.GlobalConfig.NoBar, "Hide the summary bar at the end of test output")
+	rootCmd.PersistentFlags().BoolVarP(&internal.GlobalConfig.Watch, "watch", "w", internal.GlobalConfig.Watch, "Watch for file changes and rerun tests")
 
 	rootCmd.PersistentFlags().BoolVar(&internal.GlobalConfig.NoColor, "no-color", internal.GlobalConfig.NoColor, "Disable color output entirely")
 	rootCmd.PersistentFlags().BoolVar(&internal.GlobalConfig.ShowColor, "color", internal.GlobalConfig.ShowColor, "Force color output, overridding NO_COLOR environment variable")
