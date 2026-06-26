@@ -51,9 +51,25 @@ Just run `prism` in your module directory. Anywhere you'd run `go test`, use `pr
 
 ![verbose demo](./assets/verbose.gif)
 
+`-C`, `--cover` -- Enable code coverage reporting. Adds coverage stats to the output.
+
+![cover demo](./assets/cover.gif)
+
+`-c, --count` -- Disable test caching. Forces fresh test runs by setting `-c=1`, `--count=1`.
+
+![cache demo](./assets/cache.gif)
+
 `-f` -- Failed Only. Only gives information about tests that failed  
 
 ![fail-only demo](./assets/fails.gif)
+
+`-F`, `--filter` -- Run only tests matching the regex pattern.
+
+![filter demo](./assets/filter.gif)
+
+`-s, --summary-only` — Show only the final summary. Hides individual test output.
+
+![summary only demo](./assets/summary-only.gif)
 
 `--no-color` OR `--show-color` to force showing or hiding color
 
