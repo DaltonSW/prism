@@ -8,12 +8,15 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/yarlson/pin"
 )
+
+var coverProfilePath string
 
 func Execute(args []string) {
 	benchMode := containsBenchmarkFlag(args)
@@ -24,6 +27,18 @@ func Execute(args []string) {
 		cmdArgs = append(cmdArgs, "./...")
 	} else {
 		cmdArgs = append(cmdArgs, args...)
+	}
+
+	if GlobalConfig.Cover {
+		cmdArgs = append(cmdArgs, "-cover")
+		coverProfilePath = filepath.Join(os.TempDir(), fmt.Sprintf("prism-cover-%d.out", os.Getpid()))
+		cmdArgs = append(cmdArgs, "-coverprofile="+coverProfilePath)
+	}
+	if GlobalConfig.Count != "" {
+		cmdArgs = append(cmdArgs, "-count="+GlobalConfig.Count)
+	}
+	if GlobalConfig.Filter != "" {
+		cmdArgs = append(cmdArgs, "-run", GlobalConfig.Filter)
 	}
 
 	if benchMode {
@@ -75,6 +90,13 @@ func Execute(args []string) {
 				errorStyle.Render(fmt.Sprintf("Error running tests: %v", err)),
 			)
 			os.Exit(1)
+		}
+
+		if GlobalConfig.Cover && coverProfilePath != "" {
+			if funcCov, totalPct, loadErr := loadCoverage(coverProfilePath); loadErr == nil {
+				summary.PackageFuncCoverage = funcCov
+				summary.TotalCoverage = totalPct
+			}
 		}
 
 		// Capture all display output as a single string and wrap it
@@ -278,6 +300,17 @@ func runBenchmarks(args []string) (*BenchmarkSummary, error) {
 
 func processEvent(event *TestEvent, testMap map[string]*TestResult, summary *TestSummary) {
 	if event.Test == "" {
+		if event.Action == "output" {
+			line := strings.TrimSpace(event.Output)
+			if strings.HasPrefix(line, "coverage: ") {
+				summary.Lock()
+				if summary.PackageCoverage == nil {
+					summary.PackageCoverage = make(map[string]string)
+				}
+				summary.PackageCoverage[event.Package] = line
+				summary.Unlock()
+			}
+		}
 		return
 	}
 

@@ -62,14 +62,16 @@ type TestResult struct {
 
 // --- PackageResults (Aggregated results for a single package) ---
 type PackageResults struct {
-	Name     string
-	Tests    []TestResult
-	Status   Status // Derived: StatusPass, StatusFail, StatusSkip
-	Total    int
-	Passed   int
-	Failed   int
-	Skipped  int
-	Duration time.Duration // Sum of individual test durations in the package
+	Name         string
+	Tests        []TestResult
+	Status       Status // Derived: StatusPass, StatusFail, StatusSkip
+	Total        int
+	Passed       int
+	Failed       int
+	Skipped      int
+	Duration     time.Duration // Sum of individual test durations in the package
+	Coverage     string        // Raw `coverage:` line from go test, empty if -cover wasn't used
+	FuncCoverage []FuncCoverage
 }
 
 // --- TestSummary (Overall results of the entire test run) ---
@@ -80,6 +82,10 @@ type TestSummary struct {
 	Failed     int
 	Skipped    int
 	Total      int
+
+	PackageCoverage     map[string]string // Per package coverage line from go test -cover
+	PackageFuncCoverage map[string][]FuncCoverage
+	TotalCoverage       string
 }
 
 func (summary *TestSummary) String() string {
@@ -95,9 +101,17 @@ func displayResults(overallSummary *TestSummary) {
 		pkgName := testResult.Package
 		if _, ok := groupedByPackage[pkgName]; !ok {
 			groupedByPackage[pkgName] = &PackageResults{
-				Name:   pkgName,
-				Tests:  []TestResult{},
-				Status: StatusPass,
+				Name:     pkgName,
+				Tests:    []TestResult{},
+				Status:   StatusPass,
+				Coverage: overallSummary.PackageCoverage[pkgName],
+			}
+			if funcs, ok := overallSummary.PackageFuncCoverage[pkgName]; ok {
+				groupedByPackage[pkgName].FuncCoverage = funcs
+			} else if slash := strings.LastIndex(pkgName, "/"); slash >= 0 {
+				if funcs, ok := overallSummary.PackageFuncCoverage[pkgName[slash+1:]]; ok {
+					groupedByPackage[pkgName].FuncCoverage = funcs
+				}
 			}
 		}
 		pkgResults := groupedByPackage[pkgName]
@@ -122,13 +136,15 @@ func displayResults(overallSummary *TestSummary) {
 	}
 	sort.Strings(packageNames)
 
-	for _, pkgName := range packageNames {
-		pkgResults := groupedByPackage[pkgName]
-		renderBlocks = append(renderBlocks, displayPackageBlock(pkgResults))
+	if !GlobalConfig.SummaryOnly {
+		for _, pkgName := range packageNames {
+			pkgResults := groupedByPackage[pkgName]
+			renderBlocks = append(renderBlocks, displayPackageBlock(pkgResults))
+		}
 	}
 
 	// Overall summary
-	if len(groupedByPackage) > 1 {
+	if GlobalConfig.SummaryOnly || len(groupedByPackage) > 1 {
 		renderBlocks = append(renderBlocks, displayOverallSummary(overallSummary))
 	}
 
@@ -155,6 +171,10 @@ func displayPackageBlock(pkgResults *PackageResults) string {
 		skipStyle.Render(fmt.Sprintf("%d skipped", pkgResults.Skipped)),
 	)
 
+	if cov := parseCoverage(pkgResults.Coverage); cov != "" {
+		pkgTestResults += " • " + durationStyle.Render(cov+" covered")
+	}
+
 	sort.Slice(pkgResults.Tests, func(i, j int) bool {
 		statusOrder := map[Status]int{
 			StatusFail:    3,
@@ -180,16 +200,18 @@ func displayPackageBlock(pkgResults *PackageResults) string {
 
 	tableStr := t.Render()
 
-	separatorLine := packageSeparatorStyle.Render(strings.Repeat("─", max(lipgloss.Width(tableStr), lipgloss.Width(pkgHeader))))
+	blockWidth := max(lipgloss.Width(tableStr), lipgloss.Width(pkgHeader))
+	funcLine := formatFuncCoverage(pkgResults.FuncCoverage, blockWidth)
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		pkgHeader,
-		pkgTestResults,
-		separatorLine,
-		pkgTableStyle.Render(tableStr),
-		" ",
-		" ",
-	)
+	separatorLine := packageSeparatorStyle.Render(strings.Repeat("─", blockWidth))
+
+	items := []string{pkgHeader, pkgTestResults}
+	if funcLine != "" {
+		items = append(items, " ", funcLine)
+	}
+	items = append(items, separatorLine, pkgTableStyle.Render(tableStr), " ", " ")
+
+	return lipgloss.JoinVertical(lipgloss.Left, items...)
 }
 
 // generateTestRows creates the rows for the lipgloss table.
@@ -232,6 +254,9 @@ func displayOverallSummary(summary *TestSummary) string {
 		failStyle.Render(fmt.Sprintf("%d failed", summary.Failed)),
 		skipStyle.Render(fmt.Sprintf("%d skipped", summary.Skipped)),
 	)
+	if summary.TotalCoverage != "" {
+		out += " • " + durationStyle.Render(summary.TotalCoverage+"% covered")
+	}
 	if !GlobalConfig.NoBar {
 		out += "\n" + renderProportionalBar(summary, lipgloss.Width(out))
 	}
@@ -255,4 +280,18 @@ func renderProportionalBar(summary *TestSummary, width int) string {
 	skipBar := skipStyle.Render(strings.Repeat("━", skipWidth))
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, passBar, failBar, skipBar)
+}
+
+func parseCoverage(raw string) string {
+	if !strings.HasPrefix(raw, "coverage: ") {
+		return ""
+	}
+	rest := strings.TrimPrefix(raw, "coverage: ")
+	if rest == "[no statements]" {
+		return ""
+	}
+	if stripped, ok := strings.CutSuffix(rest, " of statements"); ok {
+		return stripped
+	}
+	return rest
 }
