@@ -26,6 +26,8 @@ var (
 
 	packageSeparatorStyle = lipgloss.NewStyle().Foreground(lipgloss.BrightBlack)
 
+	coveragePipeStyle = lipgloss.NewStyle().Foreground(lipgloss.BrightBlack)
+
 	// AppOverallOutputStyle is the top-level style that wraps all the display output.
 	AppOverallOutputStyle = lipgloss.NewStyle().AlignHorizontal(lipgloss.Center).MarginLeft(1)
 
@@ -51,6 +53,7 @@ func UnsetColors() {
 	errorStyle = errorStyle.Foreground(lipgloss.NoColor{})
 
 	packageSeparatorStyle = packageSeparatorStyle.Foreground(lipgloss.NoColor{})
+	coveragePipeStyle = coveragePipeStyle.Foreground(lipgloss.NoColor{})
 }
 
 var FigletHeaderOne = lipgloss.NewStyle().Foreground(lipgloss.Red).Render(` ____  ____  ____  ___  __  __ `)

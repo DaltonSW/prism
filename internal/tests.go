@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss/v2"
-	"github.com/charmbracelet/lipgloss/v2/table"
+	"github.com/charmbracelet/lipgloss/v2/tree"
 )
 
 // --- Constants for Test Statuses ---
@@ -193,31 +193,47 @@ func displayPackageBlock(pkgResults *PackageResults) string {
 		return nameI < nameJ
 	})
 
-	t := table.New().
-		Border(lipgloss.HiddenBorder()).
-		BorderTop(false).BorderLeft(false).BorderBottom(false).BorderRight(false).
-		Rows(generateTestRows(pkgResults.Tests)...)
+	testBlock := generateTestBlock(pkgResults.Tests)
 
-	tableStr := t.Render()
+	// Build package-level coverage block (tree-style with lipgloss tree)
+	var covBlock []string
+	if len(pkgResults.FuncCoverage) > 0 {
+		covHeader := "Coverage Summary"
+		if covPct := parseCoverage(pkgResults.Coverage); covPct != "" {
+			covHeader += fmt.Sprintf(" (%s covered)", packageStyle.Render(covPct))
+		}
+		covLines := formatFuncCoverage(pkgResults.FuncCoverage, covHeader)
+		for line := range strings.SplitSeq(covLines, "\n") {
+			covBlock = append(covBlock, line)
+		}
+	}
 
-	blockWidth := max(lipgloss.Width(tableStr), lipgloss.Width(pkgHeader))
-	funcLine := formatFuncCoverage(pkgResults.FuncCoverage, blockWidth)
-
+	blockWidth := lipgloss.Width(pkgHeader)
+	for _, l := range testBlock {
+		if w := lipgloss.Width(l); w > blockWidth {
+			blockWidth = w
+		}
+	}
+	for _, l := range covBlock {
+		if w := lipgloss.Width(l); w > blockWidth {
+			blockWidth = w
+		}
+	}
 	separatorLine := packageSeparatorStyle.Render(strings.Repeat("─", blockWidth))
 
-	items := []string{pkgHeader, pkgTestResults}
-	if funcLine != "" {
-		items = append(items, " ", funcLine)
-	}
-	items = append(items, separatorLine, pkgTableStyle.Render(tableStr), " ", " ")
+	items := make([]string, 0, 3+len(testBlock)+len(covBlock)+2)
+	items = append(items, pkgHeader, pkgTestResults, separatorLine)
+	items = append(items, testBlock...)
+	items = append(items, covBlock...)
+
+	items = append(items, "")
 
 	return lipgloss.JoinVertical(lipgloss.Left, items...)
 }
 
-// generateTestRows creates the rows for the lipgloss table.
-// This helper function remains, returning [][]string data.
-func generateTestRows(tests []TestResult) [][]string {
-	rows := make([][]string, 0) // Initialize with 0 capacity as output lines are dynamic
+// generateTestBlock builds the display lines for tests.
+func generateTestBlock(tests []TestResult) []string {
+	var lines []string
 	for _, result := range tests {
 		if GlobalConfig.OnlyFails && !(result.Status == StatusFail) {
 			continue
@@ -225,23 +241,35 @@ func generateTestRows(tests []TestResult) [][]string {
 
 		displayTestName := strings.TrimPrefix(result.Name, "Test")
 
-		row := []string{
+		// Test header:  ✗ FAIL  5.01s  FailingTest
+		line := fmt.Sprintf("%s  %s  %s",
 			result.Status.String(),
 			durationStyle.Render(fmt.Sprintf("%v", result.Duration)),
 			testNameStyle.Render(displayTestName),
-		}
-		rows = append(rows, row)
+		)
+		lines = append(lines, line)
 
 		if len(result.Output) > 0 && GlobalConfig.Verbose {
-			for _, line := range result.Output {
-				if strings.TrimSpace(line) != "" && !(strings.HasPrefix(line, "===") || strings.HasPrefix(line, "---")) {
-					outputRow := []string{"", "", outputStyle.Render(line)}
-					rows = append(rows, outputRow)
+			for _, ol := range result.Output {
+				if strings.TrimSpace(ol) != "" && !(strings.HasPrefix(ol, "===") || strings.HasPrefix(ol, "---")) {
+					lines = append(lines, "   "+outputStyle.Render(ol))
 				}
 			}
 		}
 	}
-	return rows
+	return lines
+}
+
+// coverageStyleForPct returns a color style based on coverage percentage threshold.
+func coverageStyleForPct(pct float64) lipgloss.Style {
+	switch {
+	case pct >= 80:
+		return passStyle
+	case pct >= 50:
+		return skipStyle
+	default:
+		return failStyle
+	}
 }
 
 // displayOverallSummary builds and returns the display string for the overall summary.
@@ -294,4 +322,36 @@ func parseCoverage(raw string) string {
 		return stripped
 	}
 	return rest
+}
+
+// formatFuncCoverage renders per-function coverage as a lipgloss tree.
+// The header is the tree root; each function is a child with name and | XX%.
+func formatFuncCoverage(funcs []FuncCoverage, header string) string {
+	if len(funcs) == 0 {
+		return ""
+	}
+
+	// Find max display width of styled function names for | alignment
+	maxNameWidth := 0
+	nameStrings := make([]string, len(funcs))
+	for i, fc := range funcs {
+		nameStrings[i] = testNameStyle.Render(fc.Name)
+		if w := lipgloss.Width(nameStrings[i]); w > maxNameWidth {
+			maxNameWidth = w
+		}
+	}
+
+	items := make([]any, len(funcs))
+	for i, fc := range funcs {
+		padded := nameStrings[i] + strings.Repeat(" ", maxNameWidth-lipgloss.Width(nameStrings[i]))
+		pctStr := coverageStyleForPct(fc.Pct).Render(fmt.Sprintf("| %3.0f%%", fc.Pct))
+		items[i] = fmt.Sprintf("%s %s", padded, pctStr)
+	}
+
+	t := tree.New().
+		Root(header).
+		EnumeratorStyle(coveragePipeStyle).
+		Child(items...)
+
+	return t.String()
 }
